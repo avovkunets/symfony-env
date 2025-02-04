@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  nginx:
+    container_name: nginx
+    build: containers/nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./containers/nginx/hosts:/etc/nginx/sites-available
+      - ./containers/nginx/snippets:/etc/nginx/snippets
+      - ./containers/nginx/config/nginx.conf:/etc/nginx/nginx.conf
+      - ./etc/.bashrc:/root/.bashrc
+      - ./apps/:/var/www/html
+    links:
+      - php8.3-fpm
+    networks:
+      test-network:
+        ipv4_address: 177.17.128.1
+
+  php8.3-fpm:
+    container_name: php8.3-fpm
+    env_file:
+      - .env
+    build:
+      context: containers/php8-fpm
+      target: dev
+      args:
+        APP_DIR: /var/www/html/symfony
+    volumes:
+      - ./containers/php8-fpm/bootstrap.sh:/bootstrap.sh
+      - ./containers/php8-fpm/config/php.d:/usr/local/etc/php/conf.d
+      - ./containers/php8-fpm/config/bash_history:/home/docker/.bash_history
+      - ./containers/php8-fpm/config/php-fpm.d/www.conf:/usr/local/etc/php-fpm.d/www.conf
+      - ./etc/.bashrc:/home/docker/.bashrc
+      - ./apps/:/var/www/html
+    environment:
+      HISTFILE: /home/docker/.bash_history/history
+      HISTSIZE: 1000000
+      HISTFILESIZE: 1000000
+      HISTCONTROL: ignoredups:erasedups
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      PHP_XDEBUG_ENABLED: 1
+      XDEBUG_CONFIG: "client_host=host.docker.internal client_port=9003"
+      XDEBUG_MODE: "develop,debug"
+      XDEBUG_CLIENT_HOST: host.docker.internal
+    user: docker
+    networks:
+      test-network:
+        ipv4_address: 177.17.128.2
+
+  db:
+    image: postgres:15
+    container_name: db
+    volumes:
+      - ./containers/db/.data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "log_statement=all"]
+    environment:
+      POSTGRES_PASSWORD: "root"
+      POSTGRES_USER: "root"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    networks:
+      test-network:
+        ipv4_address: 177.17.128.3
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"  # AMQP protocol
+      - "15672:15672"  # RabbitMQ Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      test-network:
+        ipv4_address: 177.17.128.4
+
+networks:
+  test-network:
+    ipam:
+      config:
+        - subnet: 177.17.0.0/16

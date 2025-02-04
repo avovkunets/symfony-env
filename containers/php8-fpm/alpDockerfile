@@ -1,0 +1,124 @@
+FROM php:8.4-fpm-alpine AS dev
+
+# Аргументи та змінні середовища
+ARG APP_DIR=/var/www/html
+ENV APP_DIR=$APP_DIR
+ENV APP_ENV=dev
+ENV PHP_INI_DIR=/usr/local/etc/php
+
+WORKDIR $APP_DIR
+
+# Встановлення системних залежностей
+RUN apk update && \
+    apk add --no-cache --virtual dev-deps \
+        git autoconf gcc g++ make openssh-client openssl bash nano \
+        supervisor icu-dev libzip-dev freetds libpq-dev libpng-dev jpeg-dev freetype-dev acl nodejs yarn \
+        linux-headers sudo php-bcmath
+
+RUN apk update && apk add supervisor
+
+# Додавання віртуального середовища до PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Створення Docker користувача
+RUN adduser \
+      --disabled-password \
+      --gecos "" \
+      --uid "1001" \
+      "docker" && \
+    adduser docker wheel && \
+    adduser docker www-data && \
+    adduser www-data docker && \
+    echo "docker:docker" | chpasswd && \
+    echo "docker  ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Встановлення php розширень
+RUN pecl install apcu-5.1.24 && \
+  docker-php-ext-enable apcu
+
+#RUN pecl install xdebug-3.4.1 && \
+#    docker-php-ext-configure gd --with-freetype=/usr/lib --with-jpeg=/usr/lib && \
+#    docker-php-ext-install intl pcntl zip pdo pdo_pgsql pgsql gd && \
+#    docker-php-ext-enable xdebug && \
+#    echo "xdebug.mode=coverage" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+RUN apk add \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    icu-dev \
+    postgresql-dev \
+    libzip-dev \
+    unzip \
+    git
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        bcmath \
+        intl \
+        pcntl \
+        zip \
+        pdo \
+        pdo_pgsql \
+        pgsql \
+        gd \
+    && pecl install xdebug-3.4.1 \
+    && docker-php-ext-enable xdebug \
+    && echo "xdebug.mode=coverage" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+
+RUN apk add \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    icu-dev \
+    postgresql-dev \
+    libzip-dev \
+    unzip \
+    git
+
+COPY devops/docker/php/php.ini /usr/local/etc/php/php.ini
+
+## Встановлення composer
+RUN curl -sS https://getcomposer.org/installer | php -- --2 --install-dir=/usr/local/bin --filename=composer
+
+# Конфігурація supervisord
+COPY devops/docker/supervisord/conf.local.conf /etc/supervisord.conf
+RUN mkdir -p -m 777 /var/log/supervisor
+
+# Створення Dir для PhpStorm
+RUN mkdir -p /opt/.phpstorm_helpers && \
+    chown docker:docker /opt/.phpstorm_helpers
+
+# Конфігурація Openssh
+RUN rm -rf /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ed25519_key && \
+    ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa && \
+    ssh-keygen -f /etc/ssh/ssh_host_ecdsa_key -N '' -t ecdsa && \
+    ssh-keygen -f /etc/ssh/ssh_host_ed25519_key -N '' -t ed25519 && \
+    mkdir -p /var/run/sshd
+
+# Configure local supervisord
+COPY devops/docker/supervisord/conf.local.conf /etc/supervisord.conf
+RUN mkdir -p -m 777 /var/log/supervisor
+
+COPY config/supervisord/supervisord.conf /tmp/supervisord.conf
+COPY bin/set-permissions.sh /opt/set-permissions.sh
+RUN cat /tmp/supervisord.conf >> /etc/supervisord.conf
+
+# Set the HISTFILE environment variable
+ENV HISTFILE=/root/.bash_history
+
+# Ensure the directory exists and create the history file with the right permissions
+RUN mkdir -p $(dirname $HISTFILE) && touch $HISTFILE && chown docker:docker $HISTFILE
+
+# Права
+RUN chown -R docker:docker /home/docker
+RUN mkdir -p /var/run/supervisor && chmod 777 /var/run/supervisor
+RUN chown -R docker:docker /var/run/supervisor /var/log/supervisor
+
+EXPOSE 9000
+
+EXPOSE 22
+
+ENTRYPOINT ["sudo", "-E", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
