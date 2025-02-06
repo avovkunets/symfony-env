@@ -131,7 +131,6 @@ COPY --chown=www-data:www-data . .
 USER root
 
 ## Cleanup
-RUN apk del dev-deps && \
-    rm -rf /tmp/* /var/cache/apk/* /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+RUN rm -rf /tmp/* /var/cache/apk/* /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 ENTRYPOINT ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
