@@ -39,7 +39,7 @@ env-generate:
 #############################
 
 shell-web:
-	docker exec -e COLUMNS="220" -w="/var/www/html/symfony" -it php8.4-fpm bash
+	docker exec -e COLUMNS="220" -w="/var/www/html/symfony" -it php8.3-fpm bash
 
 shell-nginx:
 	docker exec -e COLUMNS="220" -it --user root nginx bash
