@@ -59,9 +59,9 @@ RUN adduser \
 
 # Встановлення php розширень
 RUN pecl install xdebug-3.4.1 apcu-5.1.22 amqp && \
-    docker-php-ext-configure gd --with-freetype=/usr/lib --with-jpeg=/usr/lib && \
+    docker-php-ext-configure intl gd --with-freetype=/usr/lib --with-jpeg=/usr/lib && \
     docker-php-ext-install bcmath xsl intl pcntl zip pdo pdo_pgsql pgsql gd && \
-    docker-php-ext-enable amqp apcu xsl xdebug pdo pdo_pgsql pgsql && \
+    docker-php-ext-enable amqp intl apcu xsl xdebug pdo pdo_pgsql pgsql && \
     echo "xdebug.mode=coverage" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 ## Встановлення composer
@@ -132,5 +132,3 @@ USER root
 
 ## Cleanup
 RUN rm -rf /tmp/* /var/cache/apk/* /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-
-ENTRYPOINT ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
