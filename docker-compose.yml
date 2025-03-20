@@ -40,7 +40,7 @@ services:
       HISTFILESIZE: 1000000
       HISTCONTROL: ignoredups:erasedups
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-      PHP_XDEBUG_ENABLED: ${APP_DEBUG}
+      PHP_XDEBUG_ENABLED: ${XDEBUG_ENABLED}
       XDEBUG_CONFIG: "client_host=host.docker.internal client_port=9003"
       XDEBUG_MODE: "develop,debug"
       XDEBUG_CLIENT_HOST: host.docker.internal
